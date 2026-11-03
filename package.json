@@ -1,0 +1,31 @@
+{
+  "name": "@commerce/plugin-ai-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "commerce": {
+    "manifestVersion": 1,
+    "id": "official.ai-assistant",
+    "title": "AI 助手",
+    "description": "在独立插件界面中使用轻作共享 AI 服务完成对话、模型选择与设置",
+    "category": "效率工具",
+    "api": "^1.10.0",
+    "ui": "ui/index.html",
+    "settings": {
+      "title": "AI 设置",
+      "entry": "settings/index.html"
+    },
+    "releaseNotes": "首个独立界面版本：历史会话、对话与工具列表、文本模型选择和测试、共享图像服务状态与模型目录。访问密钥只通过桌面原生输入处理。",
+    "permissions": {}
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "pack": "node scripts/pack-plugin.mjs",
+    "test:host": "node tests/host.mjs"
+  },
+  "devDependencies": {
+    "adm-zip": "0.5.16",
+    "@playwright/test": "1.64.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>AI 设置 - AI 助手</title>
+  <link rel="stylesheet" href="../ui/style.css">
+</head>
+<body class="settings-page">
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></symbol>
+    <symbol id="icon-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M14 9l2 2"/></symbol>
+    <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-5-5L5 20"/></symbol>
+    <symbol id="icon-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3ZM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14ZM5 13l.7 1.8 1.8.7-1.8.7L5 18l-.7-1.8L2.5 15.5l1.8-.7L5 13Z"/></symbol>
+    <symbol id="icon-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></symbol>
+    <symbol id="icon-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.7-4.8A8.1 8.1 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></symbol>
+  </svg>
+
+  <div class="settings-shell">
+    <header class="settings-topbar">
+      <a class="button button-ghost back-link" href="../ui/index.html" aria-label="返回对话" title="返回对话">
+        <svg class="icon"><use href="#icon-back"></use></svg><span>返回对话</span>
+      </a>
+      <div class="settings-heading">
+        <h1>AI 设置</h1>
+        <p>连接共享 AI 服务，查看模型并检查图像能力。</p>
+      </div>
+      <button id="refresh-page" class="button button-outline" type="button" aria-label="刷新" title="刷新">
+        <svg class="icon"><use href="#icon-refresh"></use></svg><span>刷新</span>
+      </button>
+    </header>
+
+    <main id="settings-content" class="settings-content">
+      <div id="settings-feedback" class="feedback-stack" aria-live="polite"></div>
+
+      <section id="settings-loading" class="settings-state" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        <p>正在读取 AI 设置…</p>
+      </section>
+
+      <section id="settings-error" class="settings-state error-state" hidden>
+        <svg class="icon"><use href="#icon-alert"></use></svg>
+        <h2>暂时无法读取 AI 设置</h2>
+        <p id="settings-error-message"></p>
+        <button id="retry-load" class="button button-outline" type="button">重新读取</button>
+      </section>
+
+      <section id="ready-card" class="ready-card" aria-label="AI 助手状态" hidden>
+        <div class="ready-mark"><svg class="icon"><use href="#icon-check"></use></svg></div>
+        <div class="ready-copy">
+          <span>已启用</span>
+          <h2 id="ready-title">AI 助手已连接</h2>
+          <p id="ready-description"></p>
+        </div>
+        <div class="ready-actions">
+          <a class="button button-primary" href="../ui/index.html"><svg class="icon"><use href="#icon-message"></use></svg><span>返回对话</span></a>
+          <button id="change-service" class="button button-outline" type="button">更换服务</button>
+        </div>
+      </section>
+
+      <section id="setup-card" class="settings-card setup-card" aria-labelledby="provider-heading">
+        <div class="card-heading">
+          <div>
+            <span class="section-kicker">连接 AI 服务</span>
+            <h2 id="provider-heading">选择一个服务商</h2>
+            <p>选择常用的兼容服务，或填写自己的 OpenAI 兼容地址。</p>
+          </div>
+          <div class="secure-note">
+            <svg class="icon"><use href="#icon-key"></use></svg>
+            <span>密钥由桌面安全输入</span>
+          </div>
+        </div>
+
+        <div id="provider-grid" class="provider-grid" role="group" aria-label="服务商"></div>
+
+        <div class="address-row">
+          <label class="field">
+            <span>服务地址</span>
+            <input id="address-input" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="填写 OpenAI 兼容服务地址">
+          </label>
+          <button id="begin-text-setup" class="button button-primary setup-button" type="button">
+            <svg class="icon"><use href="#icon-key"></use></svg><span>使用桌面安全输入</span>
+          </button>
+        </div>
+        <p class="field-hint">连接成功后会自动读取可用文本模型。键盘输入与密钥保存都在桌面窗口完成，页面只接收脱敏状态。</p>
+      </section>
+
+      <section id="models-card" class="settings-card" aria-labelledby="models-heading" hidden>
+        <div class="card-heading">
+          <div>
+            <h2 id="models-heading"><svg class="icon section-icon"><use href="#icon-layers"></use></svg>可用文本模型 <span id="model-count" class="count"></span></h2>
+            <p>测试会发送一条最小对话请求，可能产生少量费用。</p>
+          </div>
+          <button id="refresh-models" class="button button-ghost" type="button">
+            <svg class="icon"><use href="#icon-refresh"></use></svg><span>刷新</span>
+          </button>
+        </div>
+        <div id="models-loading" class="inline-state" hidden><span class="spinner" aria-hidden="true"></span>正在读取模型…</div>
+        <div id="models-empty" class="inline-state" hidden>服务没有返回可用的文本模型。</div>
+        <div id="model-list" class="catalog-list" role="list" aria-label="可用模型列表"></div>
+      </section>
+
+      <section id="image-card" class="settings-card" aria-labelledby="image-heading">
+        <div class="card-heading">
+          <div>
+            <h2 id="image-heading"><svg class="icon section-icon"><use href="#icon-image"></use></svg>共享图像能力</h2>
+            <p>所有图像工具共用这里的服务，不需要重复填写密钥。</p>
+          </div>
+          <button id="refresh-image" class="button button-ghost" type="button">
+            <svg class="icon"><use href="#icon-refresh"></use></svg><span>刷新</span>
+          </button>
+        </div>
+
+        <div id="image-status-list" class="image-status-list">
+          <div class="image-status-row">
+            <div><strong>Google 官方</strong><span>用于 Google / Gemini 图像模型</span></div>
+            <span id="image-status-google" class="status-chip">读取中</span>
+          </div>
+          <div class="image-status-row">
+            <div><strong>OpenAI 官方</strong><span>可自动沿用上方 OpenAI 连接</span></div>
+            <span id="image-status-openai" class="status-chip">读取中</span>
+          </div>
+          <div class="image-status-row">
+            <div><strong>兼容服务</strong><span>沿用上方连接；可用模型取决于服务商支持</span></div>
+            <span id="image-status-proxy" class="status-chip">读取中</span>
+          </div>
+        </div>
+
+        <div id="image-actions" class="image-actions"></div>
+
+        <div class="image-catalog-heading">
+          <strong>可用图片模型 <span id="image-model-count" class="count"></span></strong>
+          <small>图像工具会从这些模型中选择。</small>
+        </div>
+        <div id="image-models-loading" class="inline-state" hidden><span class="spinner" aria-hidden="true"></span>正在读取图片模型…</div>
+        <div id="image-models-empty" class="inline-state" hidden>配置图像服务后，这里会显示可用模型。</div>
+        <div id="image-model-list" class="catalog-list" role="list" aria-label="可用图片模型"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./settings.mjs"></script>
+</body>
+</html>
