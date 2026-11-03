@@ -8,12 +8,14 @@ import AdmZip from 'adm-zip';
 import { packPlugin } from '../scripts/pack-plugin.mjs';
 import { validateManifest } from '../scripts/manifest.mjs';
 
+const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+
 test('pack emits identical dual-platform artifacts and minimal release fragments', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'qingzuo-ai-assistant-pack-'));
   try {
     const result = await packPlugin({ outputDirectory: directory });
     assert.equal(result.id, 'official.ai-assistant');
-    assert.equal(result.version, '0.1.0');
+    assert.equal(result.version, pkg.version);
     assert.equal(result.artifacts.length, 2);
     assert.deepEqual(result.artifacts.map(item => item.platform), ['darwin-arm64', 'win32-x64']);
     assert.equal(result.artifacts[0].sha256, result.artifacts[1].sha256);
@@ -67,7 +69,8 @@ test('pack emits identical dual-platform artifacts and minimal release fragments
       assert.equal(release.api, '^1.10.0');
       assert.equal(release.artifacts[item.platform].size, item.size);
       assert.equal(release.artifacts[item.platform].sha256, item.sha256);
-      assert.match(release.artifacts[item.platform].url, /\/releases\/download\/v0\.1\.0\/official\.ai-assistant-0\.1\.0-/);
+      const escapedVersion = pkg.version.replaceAll('.', '\\.');
+      assert.match(release.artifacts[item.platform].url, new RegExp(`/releases/download/v${escapedVersion}/official\\.ai-assistant-${escapedVersion}-`));
     }
   } finally {
     await rm(directory, { recursive: true, force: true });

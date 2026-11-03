@@ -1,6 +1,6 @@
 {
   "name": "@commerce/plugin-ai-assistant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "commerce": {
@@ -15,7 +15,7 @@
       "title": "AI 设置",
       "entry": "settings/index.html"
     },
-    "releaseNotes": "首个独立界面版本：历史会话、对话与工具列表、文本模型选择和测试、共享图像服务状态与模型目录。访问密钥只通过桌面原生输入处理。",
+    "releaseNotes": "首个独立界面版本：历史会话、对话与工具列表、文本模型选择和测试、共享图像服务状态与模型目录。访问密钥只通过桌面原生输入处理。修复双平台安装包与版本信息不一致的问题，确保各平台获取正确制品。",
     "permissions": {}
   },
   "scripts": {
