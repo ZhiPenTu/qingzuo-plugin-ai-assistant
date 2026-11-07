@@ -60,11 +60,13 @@ test('pack emits identical dual-platform artifacts and minimal release fragments
         'artifacts',
         'category',
         'description',
+        'icon',
         'id',
         'releaseNotes',
         'title',
         'version',
       ]);
+      assert.equal(release.icon, manifest.icon);
       assert.equal(release.id, 'official.ai-assistant');
       assert.equal(release.api, '^1.10.0');
       assert.equal(release.artifacts[item.platform].size, item.size);
