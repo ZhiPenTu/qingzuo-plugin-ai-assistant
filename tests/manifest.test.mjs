@@ -4,49 +4,59 @@ import { access, readFile } from 'node:fs/promises';
 import { validateManifest, EXPECTED_API } from '../scripts/manifest.mjs';
 
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
-const [chatMarkup, settingsMarkup, chatApp, settingsApp, bridge] = await Promise.all([
-  readFile('ui/index.html', 'utf8'),
+const [settingsMarkup, settingsApp, bridge] = await Promise.all([
   readFile('settings/index.html', 'utf8'),
-  readFile('ui/app.mjs', 'utf8'),
   readFile('settings/settings.mjs', 'utf8'),
-  readFile('ui/bridge.mjs', 'utf8')
+  readFile('settings/bridge.mjs', 'utf8')
 ]);
 
-test('manifest is a UI-only API 1.10 plugin with the required pages', () => {
+test('manifest is a settings-only API 1.10 plugin that points ui at the settings entry', () => {
   const manifest = validateManifest(pkg);
   assert.equal(manifest.manifestVersion, 1);
   assert.equal(manifest.id, 'official.ai-assistant');
   assert.equal(manifest.title, 'AI 助手');
   assert.equal(manifest.api, '^1.10.0');
   assert.equal(EXPECTED_API, '^1.10.0');
-  assert.equal(manifest.ui, 'ui/index.html');
+  assert.equal(manifest.ui, 'settings/index.html');
   assert.deepEqual(manifest.settings, { title: 'AI 设置', entry: 'settings/index.html' });
+  assert.equal(manifest.ui, manifest.settings.entry);
   assert.deepEqual(manifest.permissions, {});
   assert.equal(manifest.backend, undefined);
+  assert.equal(manifest.assistant, undefined);
   assert.equal(manifest.permissions.network, undefined);
+  assert.equal(manifest.permissions.ai, undefined);
+  assert.equal(manifest.version, '0.2.0');
 });
 
 test('all runtime files are local and present', async () => {
   for (const file of [
-    'ui/index.html',
-    'ui/app.mjs',
-    'ui/bridge.mjs',
-    'ui/style.css',
     'settings/index.html',
     'settings/settings.mjs',
+    'settings/bridge.mjs',
+    'settings/style.css',
     'LICENSE',
     'README.md'
   ]) {
     await access(file);
   }
-  assert.match(chatMarkup, /<title>AI 助手<\/title>/);
   assert.match(settingsMarkup, /<title>AI 设置 - AI 助手<\/title>/);
-  assert.match(chatMarkup, /href="\.\.\/settings\/index\.html"/);
-  assert.match(settingsMarkup, /href="\.\.\/ui\/index\.html"/);
+  assert.match(settingsMarkup, /<h1>AI 设置<\/h1>/);
+  assert.match(settingsMarkup, /href="\.\/style\.css"/);
+  assert.match(settingsMarkup, /src="\.\/settings\.mjs"/);
+});
+
+test('manifest validator rejects a separate chat UI or assistant permissions', () => {
+  const separateUi = structuredClone(pkg);
+  separateUi.commerce.ui = 'ui/index.html';
+  assert.throws(() => validateManifest(separateUi), /AI 设置页/);
+
+  const assistantPermission = structuredClone(pkg);
+  assistantPermission.commerce.permissions.ai = ['assistant'];
+  assert.throws(() => validateManifest(assistantPermission), /AI 权限/);
 });
 
 test('pages contain no secret input fields or direct key submission', () => {
-  const pages = chatMarkup + settingsMarkup + chatApp + settingsApp + bridge;
+  const pages = settingsMarkup + settingsApp + bridge;
   assert.doesNotMatch(pages, /type=["']password["']/i);
   assert.doesNotMatch(pages, /\b(?:apiKey|secretKey|accessKey)\b/);
   assert.doesNotMatch(settingsMarkup, /<input[^>]+(?:id|name)=["'][^"']*(?:key|secret)/i);
@@ -54,8 +64,9 @@ test('pages contain no secret input fields or direct key submission', () => {
   assert.match(bridge, /beginImageKeySetup: provider => invoke\(BRIDGE_METHODS\.settings\.beginImageKeySetup, \{ provider \}/);
 });
 
-test('approval UI is not rendered in the plugin', () => {
-  assert.match(chatApp, /等待桌面确认/);
-  assert.doesNotMatch(chatApp, /approval\.args|approvals\.map|pluginTitle/);
-  assert.doesNotMatch(chatMarkup, /确认调用|拒绝调用|插件调用参数/);
+test('chat and approval surfaces are absent from the plugin', () => {
+  const pages = settingsMarkup + settingsApp + bridge;
+  assert.doesNotMatch(pages, /firstParty\.assistant\.chat|onAI|assistant-delta|approvals?|等待桌面确认/);
+  assert.doesNotMatch(settingsMarkup, /AI 对话|返回对话|历史对话|新建对话|消息|发送/);
+  assert.doesNotMatch(settingsApp, /\.chat\.|chatId|observeSession|sanitizeAssistantEvent/);
 });

@@ -1,62 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   BRIDGE_METHODS,
   actionableError,
-  createAssistantBridge,
-  observeSession,
-  sanitizeAssistantEvent
-} from '../ui/bridge.mjs';
-
-const session = {
-  id: 'chat-1',
-  title: '测试对话',
-  model: 'text-model',
-  state: 'running',
-  partial: '部分',
-  approvals: [{ id: 'approval-1', pluginTitle: '插件', title: '调用', args: { secret: 'HIDDEN' } }],
-  history: [
-    { role: 'user', text: '你好' },
-    { role: 'tool', text: '完成', tool: 'call_plugin', pluginId: 'local.demo', args: { path: '/tmp/HIDDEN', apiKey: 'HIDDEN' } }
-  ]
-};
+  createAssistantBridge
+} from '../settings/bridge.mjs';
 
 function fixtureHost() {
   const calls = [];
-  const listeners = new Set();
-  const host = {
+  return {
     calls,
     invoke: async (method, args = {}) => {
       calls.push({ method, args });
-      if (method === BRIDGE_METHODS.chat.status) return structuredClone(session);
-      if (method === BRIDGE_METHODS.chat.create || method === BRIDGE_METHODS.chat.send || method === BRIDGE_METHODS.chat.cancel) return structuredClone(session);
-      if (method === BRIDGE_METHODS.chat.list || method === BRIDGE_METHODS.chat.tools) return [];
       if (method === BRIDGE_METHODS.settings.models) return [];
       if (method === BRIDGE_METHODS.settings.imageModels) return { models: [], error: null };
       if (method === BRIDGE_METHODS.settings.testModel) return { ok: true, latencyMs: 12, response: 'OK' };
+      if (method === BRIDGE_METHODS.settings.imageStatus) return {};
       return {};
-    },
-    onAI(callback) {
-      listeners.add(callback);
-      return () => listeners.delete(callback);
-    },
-    emit(value) {
-      for (const listener of listeners) listener(value);
     }
   };
-  return host;
 }
 
-test('all host bridge methods use the fixed first-party names and no key fields', async () => {
+test('settings bridge uses only the fixed first-party settings methods without key fields', async () => {
   const host = fixtureHost();
   const bridge = createAssistantBridge(host);
-  await bridge.chat.list();
-  await bridge.chat.status('chat-1');
-  await bridge.chat.tools();
-  await bridge.chat.create('text-model');
-  await bridge.chat.send('chat-1', '你好', 'text-model');
-  await bridge.chat.cancel('chat-1');
-  await bridge.chat.delete('chat-1');
   await bridge.settings.status();
   await bridge.settings.models();
   await bridge.settings.testModel('text-model');
@@ -67,13 +35,6 @@ test('all host bridge methods use the fixed first-party names and no key fields'
   await bridge.settings.imageModels();
 
   assert.deepEqual(host.calls.map(call => call.method), [
-    'firstParty.assistant.chat.list',
-    'firstParty.assistant.chat.status',
-    'firstParty.assistant.chat.tools',
-    'firstParty.assistant.chat.create',
-    'firstParty.assistant.chat.send',
-    'firstParty.assistant.chat.cancel',
-    'firstParty.assistant.chat.delete',
     'firstParty.assistant.settings.status',
     'firstParty.assistant.settings.models',
     'firstParty.assistant.settings.testModel',
@@ -88,57 +49,38 @@ test('all host bridge methods use the fixed first-party names and no key fields'
   assert.doesNotMatch(serialized, /apiKey|secretKey|accessKey|credential|HIDDEN/);
   assert.deepEqual(host.calls.find(call => call.method.endsWith('beginTextSetup')).args, { address: 'https://api.example.com/v1' });
   assert.deepEqual(host.calls.find(call => call.method.endsWith('beginImageKeySetup')).args, { provider: 'google' });
+  assert.deepEqual(host.calls.find(call => call.method.endsWith('clearImageKey')).args, { provider: 'google' });
   assert.deepEqual(host.calls.find(call => call.method.endsWith('testModel')).args, { model: 'text-model' });
 });
 
-test('missing host bridge produces an actionable message', () => {
-  assert.throws(() => createAssistantBridge(null), /请在轻作桌面中打开 AI 助手/);
+test('bridge exposes no chat, event or approval surface', async () => {
+  const bridge = createAssistantBridge(fixtureHost());
+  assert.deepEqual(Object.keys(bridge), ['settings']);
+  assert.equal(bridge.chat, undefined);
+  assert.equal(bridge.subscribeAI, undefined);
+  const source = await readFile('settings/bridge.mjs', 'utf8');
+  assert.doesNotMatch(source, /firstParty\.assistant\.chat|onAI|assistant-delta|approval/i);
 });
 
-test('assistant session strips approvals, args, paths and unknown fields', () => {
-  const observed = observeSession({
-    ...session,
-    extra: 'discard',
-    history: [...session.history, { role: 'assistant', text: '好', approvals: [{ id: 'x' }], args: { path: '/tmp/secret' } }]
-  });
-  assert.ok(observed);
-  assert.equal(observed.waitingForApproval, true);
-  assert.equal('approvals' in observed.session, false);
-  assert.equal('extra' in observed.session, false);
-  assert.equal(observed.session.history.length, 3);
-  for (const message of observed.session.history) {
-    assert.equal('args' in message, false);
-    assert.equal('approvals' in message, false);
-  }
-  assert.doesNotMatch(JSON.stringify(observed.session), /approval-1|HIDDEN|\/tmp\/secret/);
+test('missing host bridge produces an actionable settings message', () => {
+  assert.throws(() => createAssistantBridge(null), /请在轻作桌面中打开 AI 设置/);
 });
 
-test('onAI only forwards sanitized delta and session events', () => {
-  const host = fixtureHost();
-  const bridge = createAssistantBridge(host);
-  const events = [];
-  bridge.subscribeAI(event => events.push(event));
-  host.emit({ type: 'approvals', chatId: 'chat-1', approvals: [{ args: { path: '/tmp/HIDDEN' } }] });
-  host.emit({ type: 'navigate', chatId: 'chat-1', pluginId: 'local.demo' });
-  host.emit({ type: 'assistant-delta', chatId: 'chat-1', text: '新内容', partial: '完整内容', approvals: [{ args: { secret: 'HIDDEN' } }] });
-  host.emit({ type: 'assistant', chatId: 'chat-1', session, approvals: [{ args: { secret: 'HIDDEN' } }] });
-  host.emit({ type: 'assistant', chatId: '', session });
-
-  assert.equal(events.length, 2);
-  assert.deepEqual(events[0], { type: 'assistant-delta', chatId: 'chat-1', text: '新内容', partial: '完整内容' });
-  assert.equal(events[1].type, 'assistant');
-  assert.equal('approvals' in events[1].session, false);
-  assert.doesNotMatch(JSON.stringify(events), /HIDDEN|\/tmp\/secret|approval-1/);
+test('raw host errors are converted to actionable settings copy', () => {
+  assert.equal(actionableError(new Error('401 invalid key /Users/alice/secret')), '访问密钥无效，请到 AI 设置重新输入。');
+  assert.equal(actionableError(new Error('429 too many requests')), '请求过于频繁或额度不足，请稍后再试。');
+  assert.equal(actionableError(new Error('第一方能力未授权。')), '请从插件市场安装 AI 助手后再打开 AI 设置。');
+  assert.equal(actionableError(new Error('请配置代理访问密钥。')), '请填写有效的访问密钥后重试。');
+  assert.equal(actionableError(new Error('无法保存访问密钥，请检查应用数据目录权限后重试。')), '无法保存访问密钥，请检查应用数据目录权限后重试。');
+  assert.equal(actionableError(new Error('服务没有返回任何可用模型，请检查账户权限或服务地址。')), '服务没有返回可用模型，请检查服务地址或账户权限。');
+  assert.equal(actionableError(new Error('模型未通过文本补全测试，可能不支持当前补全接口。')), '模型未通过文本补全测试，可能不支持当前补全接口。');
+  assert.equal(actionableError(new Error('EACCES /tmp/private')), '设置操作未完成，请稍后重试。');
+  assert.doesNotMatch(actionableError(new Error('EACCES /tmp/private')), /tmp|private/i);
 });
 
-test('sanitizeAssistantEvent ignores approval and navigate event types', () => {
-  assert.equal(sanitizeAssistantEvent({ type: 'approvals', chatId: 'chat-1', approvals: [] }), null);
-  assert.equal(sanitizeAssistantEvent({ type: 'navigate', chatId: 'chat-1', pluginId: 'local.demo' }), null);
-});
-
-test('raw host errors are converted to actionable public copy', () => {
-  assert.equal(actionableError(new Error('401 invalid key /Users/alice/secret'), 'settings'), '访问密钥无效，请到 AI 设置重新输入。');
-  assert.equal(actionableError(new Error('429 too many requests'), 'chat'), '请求过于频繁或额度不足，请稍后再试。');
-  assert.equal(actionableError(new Error('EACCES /tmp/private'), 'chat'), '对话操作未完成，请稍后重试。');
-  assert.doesNotMatch(actionableError(new Error('EACCES /tmp/private'), 'chat'), /tmp|private/i);
+test('bridge errors are already user-facing and the page does not map them twice', async () => {
+  const bridge = createAssistantBridge({ invoke: async () => { throw new Error('第一方能力未授权。'); } });
+  const reason = await bridge.settings.status().catch(error => error);
+  assert.equal(reason.actionable, true);
+  assert.equal(reason.message, '请从插件市场安装 AI 助手后再打开 AI 设置。');
 });

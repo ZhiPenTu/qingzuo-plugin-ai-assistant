@@ -5,7 +5,7 @@ import AdmZip from 'adm-zip';
 import { validateManifest } from './manifest.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const INCLUDED_DIRECTORIES = ['ui', 'settings'];
+const INCLUDED_DIRECTORIES = ['settings'];
 const PLATFORMS = ['darwin-arm64', 'win32-x64'];
 const REPOSITORY = 'https://github.com/ZhiPenTu/qingzuo-plugin-ai-assistant';
 
@@ -44,7 +44,7 @@ export async function packPlugin({ root = ROOT, outputDirectory = path.join(root
     for (const [relative, bytes] of await collect(path.join(root, directory), directory)) files.set(relative, bytes);
   }
   if (!files.has(manifest.settings.entry)) throw new Error('插件包缺少设置页。');
-  if (!files.has(manifest.ui)) throw new Error('插件包缺少对话页。');
+  if (!files.has(manifest.ui)) throw new Error('插件包缺少界面入口。');
 
   const zip = new AdmZip();
   for (const [relative, bytes] of [...files].sort(([left], [right]) => left.localeCompare(right))) zip.addFile(relative, bytes);

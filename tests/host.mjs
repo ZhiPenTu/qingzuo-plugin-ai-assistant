@@ -12,12 +12,10 @@ if (!executable) {
 
 const pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const artifact = path.resolve('release', `${pkg.commerce.id}-${pkg.version}-${process.platform}-${process.arch}.ecplugin`);
-try {
-  await access(artifact);
-} catch {
-  const packed = spawnSync(process.execPath, ['scripts/pack-plugin.mjs'], { stdio: 'inherit' });
-  if (packed.status !== 0) throw new Error('无法生成宿主测试制品。');
-}
+// Always pack so the smoke test never installs a stale artifact from an
+// earlier run.
+const packed = spawnSync(process.execPath, ['scripts/pack-plugin.mjs'], { stdio: 'inherit' });
+if (packed.status !== 0) throw new Error('无法生成宿主测试制品。');
 await access(executable);
 
 const { _electron: electron, expect } = await import('@playwright/test');
@@ -45,12 +43,13 @@ try {
   await card.getByRole('button', { name: /^打开/ }).click();
   await expect.poll(() => application.context().pages().some(candidate => candidate.url().startsWith('commerce-plugin://official.ai-assistant/')), { timeout: 60000 }).toBe(true);
   const plugin = application.context().pages().find(candidate => candidate.url().startsWith('commerce-plugin://official.ai-assistant/'));
-  await expect(plugin.getByRole('heading', { name: 'AI 对话', exact: true })).toBeVisible();
-  await expect(plugin.getByLabel('消息', { exact: true })).toBeVisible();
-  await plugin.getByRole('link', { name: 'AI 设置', exact: true }).click();
+  await expect.poll(() => plugin.url(), { timeout: 30000 }).toMatch(/\/settings\/index\.html$/);
   await expect(plugin.getByRole('heading', { name: 'AI 设置', exact: true })).toBeVisible();
-  await expect(plugin.getByRole('link', { name: '返回对话', exact: true }).first()).toBeVisible();
-  console.log('宿主冒烟通过：插件可安装，对话页与设置页可打开。');
+  await expect(plugin.getByRole('button', { name: '使用桌面安全输入', exact: true }).first()).toBeVisible();
+  // A locally imported package has no first-party grant; the page must explain
+  // that instead of offering a chat surface.
+  await expect(plugin.getByText('请从插件市场安装 AI 助手后再打开 AI 设置。', { exact: true })).toBeVisible();
+  console.log('宿主冒烟通过：插件可安装，并直接打开 AI 设置页。');
 } finally {
   await application?.close().catch(() => {});
   await rm(temporary, { recursive: true, force: true });
