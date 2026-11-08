@@ -47,7 +47,7 @@ try {
   const plugin = application.context().pages().find(candidate => candidate.url().startsWith('commerce-plugin://official.ai-assistant/'));
   await expect.poll(() => plugin.url(), { timeout: 30000 }).toMatch(/\/settings\/index\.html$/);
   await expect(plugin.getByRole('heading', { name: 'AI 设置', exact: true })).toBeVisible();
-  await expect(plugin.getByRole('button', { name: '使用桌面安全输入', exact: true })).toBeVisible();
+  await expect(plugin.getByRole('button', { name: '使用桌面安全输入', exact: true }).first()).toBeVisible();
   await expect(plugin.getByLabel('消息', { exact: true })).toHaveCount(0);
   console.log('宿主冒烟通过：插件可安装，并直接打开 AI 设置页。');
 } finally {
