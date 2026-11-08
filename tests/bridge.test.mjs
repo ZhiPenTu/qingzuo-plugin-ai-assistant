@@ -69,6 +69,7 @@ test('missing host bridge produces an actionable settings message', () => {
 test('raw host errors are converted to actionable settings copy', () => {
   assert.equal(actionableError(new Error('401 invalid key /Users/alice/secret')), '访问密钥无效，请到 AI 设置重新输入。');
   assert.equal(actionableError(new Error('429 too many requests')), '请求过于频繁或额度不足，请稍后再试。');
+  assert.equal(actionableError(new Error('第一方能力未授权。')), '请从插件市场安装 AI 助手后再打开 AI 设置。');
   assert.equal(actionableError(new Error('EACCES /tmp/private')), '设置操作未完成，请稍后重试。');
   assert.doesNotMatch(actionableError(new Error('EACCES /tmp/private')), /tmp|private/i);
 });

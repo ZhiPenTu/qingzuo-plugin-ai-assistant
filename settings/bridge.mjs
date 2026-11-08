@@ -21,7 +21,8 @@ export function actionableError(reason) {
   if (/超时|timeout|timed out/.test(raw)) return '连接超时，请检查网络后重试。';
   if (/未配置|not configured|no model|没有.*模型|尚未启用/.test(raw)) return 'AI 服务尚未就绪，请到 AI 设置完成连接。';
   if (/取消|cancel/.test(raw)) return '操作已取消。';
-  if (/未授权|not allow|permission|denied|unsupported|不支持/.test(raw)) return '当前桌面版本暂不支持这项操作，请更新轻作后重试。';
+  if (/未授权/.test(raw)) return '请从插件市场安装 AI 助手后再打开 AI 设置。';
+  if (/not allow|permission|denied|unsupported|不支持/.test(raw)) return '当前桌面版本暂不支持这项操作，请更新轻作后重试。';
   if (/网络|network|连接失败|econn|enotfound|eai_again|failed to fetch/.test(raw)) return '无法连接 AI 服务，请检查网络后重试。';
   return '设置操作未完成，请稍后重试。';
 }
