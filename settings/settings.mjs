@@ -4,6 +4,9 @@ import {
 } from './bridge.mjs';
 
 const $ = id => document.getElementById(id);
+// The bridge already maps host failures to user-facing text; only map again
+// when the error did not come through it.
+const describeError = reason => reason?.actionable && reason.message ? reason.message : actionableError(reason);
 const PROVIDERS = [
   { id: 'deepseek', name: 'DeepSeek', description: '适合日常写作与问答', address: 'https://api.deepseek.com', badge: 'D' },
   { id: 'openai', name: 'OpenAI', description: '能力全面，适合复杂任务', address: 'https://api.openai.com', badge: 'O' },
@@ -349,7 +352,7 @@ async function loadModels({ quiet = false } = {}) {
     state.models = normalizeModels(await state.bridge.settings.models()).filter(isTextModel);
   } catch (reason) {
     state.models = [];
-    feedback(actionableError(reason), 'error');
+    feedback(describeError(reason), 'error');
   } finally {
     state.modelsLoading = false;
     render();
@@ -381,7 +384,7 @@ async function loadImageModels() {
     if (value?.error) feedback('暂时无法读取图片模型，请检查服务配置后重试。', 'error');
   } catch (reason) {
     state.imageModels = [];
-    feedback(actionableError(reason), 'error');
+    feedback(describeError(reason), 'error');
   } finally {
     state.imageModelsLoading = false;
     renderImage();
@@ -401,7 +404,7 @@ async function loadAll() {
   }
   const statusResult = await Promise.allSettled([loadStatus()]);
   if (statusResult[0].status === 'rejected') {
-    state.fatalError = actionableError(statusResult[0].reason);
+    state.fatalError = describeError(statusResult[0].reason);
     state.loading = false;
     render();
     return;
@@ -417,18 +420,23 @@ async function beginTextSetup() {
   feedback('');
   render();
   try {
-    const value = unwrap(await state.bridge.settings.beginTextSetup(state.address.trim()), 'status');
+    const result = await state.bridge.settings.beginTextSetup(state.address.trim());
+    if (result?.canceled) { feedback('操作已取消。', 'info'); return; }
+    const value = unwrap(result, 'status');
     const ready = hydrateStatus(value);
     if (ready) {
       state.editing = false;
       await loadModels();
+      // An OpenAI text connection is also the shared image connection, so the
+      // image section must not keep showing the previous inheritance state.
+      await Promise.allSettled([loadImageStatus(), loadImageModels()]);
       feedback('AI 服务已连接。', 'success');
     } else {
       state.editing = true;
       feedback('连接尚未完成，请检查服务地址后重试。', 'info');
     }
   } catch (reason) {
-    feedback(actionableError(reason), 'error');
+    feedback(describeError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -442,12 +450,13 @@ async function beginImageSetup(provider) {
   render();
   try {
     const result = await state.bridge.settings.beginImageKeySetup(provider);
+    if (result?.canceled) { feedback('操作已取消。', 'info'); return; }
     const value = unwrap(result, 'imageStatus');
     state.imageStatus = normalizeImageStatus(value) || state.imageStatus;
     await loadImageModels();
     feedback('图像服务设置已更新。', 'success');
   } catch (reason) {
-    feedback(actionableError(reason), 'error');
+    feedback(describeError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -468,7 +477,7 @@ async function clearImageKey(provider) {
     await loadImageModels();
     feedback('图像服务配置已清除。', 'success');
   } catch (reason) {
-    feedback(actionableError(reason), 'error');
+    feedback(describeError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -485,7 +494,7 @@ async function testModel(model) {
     if (result?.ok === false) {
       state.modelTests[model] = {
         state: 'error',
-        message: actionableError(result.message)
+        message: describeError(result.message)
       };
     } else {
       state.modelTests[model] = {
@@ -495,7 +504,7 @@ async function testModel(model) {
       };
     }
   } catch (reason) {
-    state.modelTests[model] = { state: 'error', message: actionableError(reason) };
+    state.modelTests[model] = { state: 'error', message: describeError(reason) };
   } finally {
     state.testingModel = '';
     renderModels();

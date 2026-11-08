@@ -70,6 +70,17 @@ test('raw host errors are converted to actionable settings copy', () => {
   assert.equal(actionableError(new Error('401 invalid key /Users/alice/secret')), '访问密钥无效，请到 AI 设置重新输入。');
   assert.equal(actionableError(new Error('429 too many requests')), '请求过于频繁或额度不足，请稍后再试。');
   assert.equal(actionableError(new Error('第一方能力未授权。')), '请从插件市场安装 AI 助手后再打开 AI 设置。');
+  assert.equal(actionableError(new Error('请配置代理访问密钥。')), '请填写有效的访问密钥后重试。');
+  assert.equal(actionableError(new Error('无法保存访问密钥，请检查应用数据目录权限后重试。')), '无法保存访问密钥，请检查应用数据目录权限后重试。');
+  assert.equal(actionableError(new Error('服务没有返回任何可用模型，请检查账户权限或服务地址。')), '服务没有返回可用模型，请检查服务地址或账户权限。');
+  assert.equal(actionableError(new Error('模型未通过文本补全测试，可能不支持当前补全接口。')), '模型未通过文本补全测试，可能不支持当前补全接口。');
   assert.equal(actionableError(new Error('EACCES /tmp/private')), '设置操作未完成，请稍后重试。');
   assert.doesNotMatch(actionableError(new Error('EACCES /tmp/private')), /tmp|private/i);
+});
+
+test('bridge errors are already user-facing and the page does not map them twice', async () => {
+  const bridge = createAssistantBridge({ invoke: async () => { throw new Error('第一方能力未授权。'); } });
+  const reason = await bridge.settings.status().catch(error => error);
+  assert.equal(reason.actionable, true);
+  assert.equal(reason.message, '请从插件市场安装 AI 助手后再打开 AI 设置。');
 });

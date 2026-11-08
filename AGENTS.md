@@ -48,4 +48,4 @@ QINGZUO_HOST_EXECUTABLE=/path/to/Qingzuo npm run test:host
 - 不自动创建 Release，不修改市场目录。
 - 提交信息使用 `feat:` / `fix:` / `test:` / `docs:` / `chore:`。
 - `release/`、`output/`、`node_modules/` 不入库。
-- manifest 的 API 范围为 `^1.10.0`；SDK 1.9.0 若作为类型或打包占位只能留在仓库工具链，不能借此降低 manifest 版本要求。
+- manifest 的 API 范围为 `^1.10.0`；当前宿主 SDK 为 1.13.0，工具链里的旧 SDK 只能作为类型或打包占位，不能借此降低 manifest 版本要求。
