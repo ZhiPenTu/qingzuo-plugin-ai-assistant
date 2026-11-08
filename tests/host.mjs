@@ -45,12 +45,11 @@ try {
   await card.getByRole('button', { name: /^打开/ }).click();
   await expect.poll(() => application.context().pages().some(candidate => candidate.url().startsWith('commerce-plugin://official.ai-assistant/')), { timeout: 60000 }).toBe(true);
   const plugin = application.context().pages().find(candidate => candidate.url().startsWith('commerce-plugin://official.ai-assistant/'));
-  await expect(plugin.getByRole('heading', { name: 'AI 对话', exact: true })).toBeVisible();
-  await expect(plugin.getByLabel('消息', { exact: true })).toBeVisible();
-  await plugin.getByRole('link', { name: 'AI 设置', exact: true }).click();
+  await expect.poll(() => plugin.url(), { timeout: 30000 }).toMatch(/\/settings\/index\.html$/);
   await expect(plugin.getByRole('heading', { name: 'AI 设置', exact: true })).toBeVisible();
-  await expect(plugin.getByRole('link', { name: '返回对话', exact: true }).first()).toBeVisible();
-  console.log('宿主冒烟通过：插件可安装，对话页与设置页可打开。');
+  await expect(plugin.getByRole('button', { name: '使用桌面安全输入', exact: true })).toBeVisible();
+  await expect(plugin.getByLabel('消息', { exact: true })).toHaveCount(0);
+  console.log('宿主冒烟通过：插件可安装，并直接打开 AI 设置页。');
 } finally {
   await application?.close().catch(() => {});
   await rm(temporary, { recursive: true, force: true });

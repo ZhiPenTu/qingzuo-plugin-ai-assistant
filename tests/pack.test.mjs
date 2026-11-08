@@ -32,13 +32,12 @@ test('pack emits identical dual-platform artifacts and minimal release fragments
       'package.json',
       'LICENSE',
       'README.md',
-      'ui/index.html',
-      'ui/app.mjs',
-      'ui/bridge.mjs',
-      'ui/style.css',
       'settings/index.html',
-      'settings/settings.mjs'
+      'settings/settings.mjs',
+      'settings/bridge.mjs',
+      'settings/style.css'
     ]) assert.ok(names.includes(required), `missing ${required}`);
+    assert.ok(names.every(name => !name.startsWith('ui/')), 'chat page files must not be packed');
     for (const name of names) {
       assert.doesNotMatch(name, /^(?:tests|scripts|node_modules|release|vendor)\//);
       assert.doesNotMatch(name, /\.tgz$|\.log$/);
@@ -48,6 +47,8 @@ test('pack emits identical dual-platform artifacts and minimal release fragments
     const manifest = validateManifest(packageJson);
     assert.equal(manifest.api, '^1.10.0');
     assert.equal(manifest.id, 'official.ai-assistant');
+    assert.equal(manifest.ui, 'settings/index.html');
+    assert.deepEqual(manifest.settings, { title: 'AI 设置', entry: 'settings/index.html' });
     assert.deepEqual(manifest.permissions, {});
 
     for (const item of result.artifacts) {
@@ -68,6 +69,7 @@ test('pack emits identical dual-platform artifacts and minimal release fragments
       ]);
       assert.equal(release.icon, manifest.icon);
       assert.equal(release.id, 'official.ai-assistant');
+      assert.equal(release.version, '0.2.0');
       assert.equal(release.api, '^1.10.0');
       assert.equal(release.artifacts[item.platform].size, item.size);
       assert.equal(release.artifacts[item.platform].sha256, item.sha256);

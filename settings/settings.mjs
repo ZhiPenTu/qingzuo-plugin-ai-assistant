@@ -1,11 +1,11 @@
 import {
   actionableError,
   createAssistantBridge
-} from '../ui/bridge.mjs';
+} from './bridge.mjs';
 
 const $ = id => document.getElementById(id);
 const PROVIDERS = [
-  { id: 'deepseek', name: 'DeepSeek', description: '适合日常对话与工具调用', address: 'https://api.deepseek.com', badge: 'D' },
+  { id: 'deepseek', name: 'DeepSeek', description: '适合日常写作与问答', address: 'https://api.deepseek.com', badge: 'D' },
   { id: 'openai', name: 'OpenAI', description: '能力全面，适合复杂任务', address: 'https://api.openai.com', badge: 'O' },
   { id: 'siliconflow', name: '硅基流动', description: '一个密钥使用多种开源模型', address: 'https://api.siliconflow.cn/v1', badge: 'S' },
   { id: 'custom', name: '自定义服务', description: '连接其他 OpenAI 兼容服务', address: '', badge: '+' }
@@ -77,7 +77,7 @@ function providerName() {
   return PROVIDERS.find(provider => provider.id === state.providerId)?.name || '自定义服务';
 }
 
-function isChatModel(model) {
+function isTextModel(model) {
   const signature = `${model?.id ?? ''} ${model?.title ?? ''} ${model?.type ?? ''}`.toLowerCase();
   return !/(?:^|[/_. -])(?:embedding|embed|rerank|reranker|bge|whisper|transcri(?:be|ption)|speech|audio|tts|video|sora|veo|kling|imagen|dall-e|stable-diffusion|flux)(?:$|[/_. -])|gpt[-_ ]?image|nano[-_ ]?banana|image[-_ ]?generat/i.test(signature);
 }
@@ -91,7 +91,7 @@ function normalizeStatus(value) {
     model: typeof value.model === 'string' ? value.model : '',
     verified: Array.isArray(value.verified) ? value.verified.filter(item => typeof item === 'string') : [],
     ready: typeof value.ready === 'boolean' ? value.ready : undefined,
-    error: typeof value.error === 'string' && value.error ? actionableError(value.error, 'settings') : ''
+    error: typeof value.error === 'string' && value.error ? actionableError(value.error) : ''
   };
 }
 
@@ -198,11 +198,10 @@ function renderReady() {
   const ready = statusReady(state.status);
   $('ready-card').hidden = !ready || state.editing;
   $('ready-title').textContent = `AI 助手已连接 ${providerName()}`;
-  const count = state.models.filter(isChatModel).length;
   $('ready-description').textContent = state.modelsLoading
     ? '正在读取可用模型。'
-    : count
-      ? `已读取 ${state.models.length} 个模型，其中 ${count} 个可用于文本对话。`
+    : state.models.length
+      ? `已读取 ${state.models.length} 个可用文本模型。`
       : '服务没有返回可用的文本模型，请检查服务账户权限。';
 }
 
@@ -237,7 +236,7 @@ function renderModels() {
     const copy = element('div', 'catalog-copy');
     const heading = element('div', 'catalog-title');
     heading.append(element('strong', '', model.title && model.title !== model.id ? model.title : model.id));
-    heading.append(element('span', 'model-kind ' + (isChatModel(model) ? '' : 'muted'), isChatModel(model) ? '文本' : '非文本'));
+    heading.append(element('span', 'model-kind', '文本'));
     copy.append(heading);
     if (model.title && model.title !== model.id) copy.append(element('code', '', model.id));
     const actions = element('div', 'catalog-actions');
@@ -248,14 +247,12 @@ function renderModels() {
       if (test.response) result.title = test.response;
       actions.append(result);
     }
-    if (isChatModel(model)) {
-      const button = element('button', 'button button-outline', state.testingModel === model.id ? '测试中…' : '测试');
-      button.type = 'button';
-      button.disabled = Boolean(state.testingModel);
-      button.setAttribute('aria-label', '测试模型 ' + model.id);
-      button.addEventListener('click', () => void testModel(model.id));
-      actions.append(button);
-    }
+    const button = element('button', 'button button-outline', state.testingModel === model.id ? '测试中…' : '测试');
+    button.type = 'button';
+    button.disabled = Boolean(state.testingModel);
+    button.setAttribute('aria-label', '测试模型 ' + model.id);
+    button.addEventListener('click', () => void testModel(model.id));
+    actions.append(button);
     row.append(copy, actions);
     list.append(row);
   }
@@ -349,10 +346,10 @@ async function loadModels({ quiet = false } = {}) {
   if (!quiet) state.modelTests = {};
   render();
   try {
-    state.models = normalizeModels(await state.bridge.settings.models()).filter(isChatModel);
+    state.models = normalizeModels(await state.bridge.settings.models()).filter(isTextModel);
   } catch (reason) {
     state.models = [];
-    feedback(actionableError(reason, 'settings'), 'error');
+    feedback(actionableError(reason), 'error');
   } finally {
     state.modelsLoading = false;
     render();
@@ -384,7 +381,7 @@ async function loadImageModels() {
     if (value?.error) feedback('暂时无法读取图片模型，请检查服务配置后重试。', 'error');
   } catch (reason) {
     state.imageModels = [];
-    feedback(actionableError(reason, 'settings'), 'error');
+    feedback(actionableError(reason), 'error');
   } finally {
     state.imageModelsLoading = false;
     renderImage();
@@ -404,7 +401,7 @@ async function loadAll() {
   }
   const statusResult = await Promise.allSettled([loadStatus()]);
   if (statusResult[0].status === 'rejected') {
-    state.fatalError = actionableError(statusResult[0].reason, 'settings');
+    state.fatalError = actionableError(statusResult[0].reason);
     state.loading = false;
     render();
     return;
@@ -431,7 +428,7 @@ async function beginTextSetup() {
       feedback('连接尚未完成，请检查服务地址后重试。', 'info');
     }
   } catch (reason) {
-    feedback(actionableError(reason, 'settings'), 'error');
+    feedback(actionableError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -450,7 +447,7 @@ async function beginImageSetup(provider) {
     await loadImageModels();
     feedback('图像服务设置已更新。', 'success');
   } catch (reason) {
-    feedback(actionableError(reason, 'settings'), 'error');
+    feedback(actionableError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -471,7 +468,7 @@ async function clearImageKey(provider) {
     await loadImageModels();
     feedback('图像服务配置已清除。', 'success');
   } catch (reason) {
-    feedback(actionableError(reason, 'settings'), 'error');
+    feedback(actionableError(reason), 'error');
   } finally {
     state.busyAction = '';
     render();
@@ -488,7 +485,7 @@ async function testModel(model) {
     if (result?.ok === false) {
       state.modelTests[model] = {
         state: 'error',
-        message: actionableError(result.message, 'settings')
+        message: actionableError(result.message)
       };
     } else {
       state.modelTests[model] = {
@@ -498,7 +495,7 @@ async function testModel(model) {
       };
     }
   } catch (reason) {
-    state.modelTests[model] = { state: 'error', message: actionableError(reason, 'settings') };
+    state.modelTests[model] = { state: 'error', message: actionableError(reason) };
   } finally {
     state.testingModel = '';
     renderModels();

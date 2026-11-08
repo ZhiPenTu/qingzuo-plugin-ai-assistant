@@ -26,8 +26,12 @@ export function validateManifest(pkg) {
   safeRelative(manifest.ui);
   if (!manifest.settings || typeof manifest.settings.title !== 'string' || !manifest.settings.title.trim()) throw new Error('插件设置入口无效。');
   safeRelative(manifest.settings.entry);
+  if (manifest.ui !== manifest.settings.entry) throw new Error('插件界面入口必须指向 AI 设置页。');
   if (manifest.backend) throw new Error('此插件不得声明后端。');
+  if (manifest.assistant) throw new Error('此插件不得声明助手能力。');
   if (!manifest.permissions || typeof manifest.permissions !== 'object' || Array.isArray(manifest.permissions)) throw new Error('插件权限无效。');
   if (manifest.permissions.network !== undefined) throw new Error('此插件不得申请网络权限。');
+  if (manifest.permissions.ai !== undefined) throw new Error('此插件不得申请 AI 权限。');
+  if (manifest.permissions.credentials !== undefined || manifest.permissions.credentialVault !== undefined) throw new Error('此插件不得申请凭据权限。');
   return { ...manifest, version: pkg.version };
 }
